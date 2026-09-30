@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VNM Loader - Beastria SDK Docs</title>
+    <style>
+        :root {
+            --bg: #090a0f; --panel: #12111a; --card: #171524;
+            --border: #29233b; --primary: #7c3aed; --cyan: #00f0ff;
+            --green: #10b981; --text: #ffffff; --muted: #71717a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+        aside { width: 340px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .sidebar-header { padding: 18px; border-bottom: 1px solid var(--border); }
+        .sidebar-header h1 { font-size: 1.1rem; color: var(--cyan); letter-spacing: 1px; }
+        .sidebar-header p { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+        .search-box { padding: 12px; border-bottom: 1px solid var(--border); }
+        .search-box input { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 10px 12px; font-size: 0.85rem; outline: none; }
+        .search-box input:focus { border-color: var(--primary); }
+        .class-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .class-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: #d4d4d8; font-family: monospace; display: flex; justify-content: space-between; margin-bottom: 2px; }
+        .class-item:hover, .class-item.active { background: var(--primary); color: #fff; }
+        .class-item span.badge { font-size: 0.7rem; background: #00000040; padding: 2px 6px; border-radius: 4px; }
+        main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 28px; }
+        .class-title { font-size: 1.6rem; color: #fff; font-family: monospace; }
+        .class-subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 6px; margin-bottom: 24px; }
+        .section-title { font-size: 0.95rem; letter-spacing: 0.5px; color: var(--cyan); text-transform: uppercase; margin: 20px 0 10px 0; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+        .table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.85rem; }
+        .table th { text-align: left; padding: 10px; background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-size: 0.75rem; }
+        .table td { padding: 10px; border: 1px solid var(--border); background: var(--card); font-family: monospace; }
+        .badge-type { color: #f472b6; }
+        .badge-offset { color: var(--cyan); }
+        .badge-rva { color: var(--green); }
+        .btn-copy { background: transparent; border: 1px solid var(--border); color: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+        .btn-copy:hover { background: var(--primary); border-color: var(--primary); }
+        #snippetModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+        .modal-content { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; width: 600px; padding: 20px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .modal-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .tab-btn { background: var(--card); border: 1px solid var(--border); color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+        .tab-btn.active { background: var(--primary); }
+        pre { background: #000; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; color: #a7f3d0; overflow-x: auto; max-height: 250px; }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="sidebar-header">
+            <h1>⚡ VNM SDK EXPLORER</h1>
+            <p>Catálogo de Classes e Offsets</p>
+        </div>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Pesquisar classe, método ou offset..." oninput="onSearch()">
+        </div>
+        <div class="class-list" id="classList"></div>
+    </aside>
+    <main id="mainContent">
+        <div style="margin: auto; text-align: center; color: var(--muted);">
+            <h2>Selecione uma classe à esquerda</h2>
+            <p style="margin-top: 8px;">Pesquise propriedades, offsets e métodos prontos para Hook.</p>
+        </div>
+    </main>
+    <div id="snippetModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle" style="color: var(--cyan);">Hook Code Snippet</h3>
+                <button class="btn-copy" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-tabs">
+                <button class="tab-btn active" onclick="setLang('lua', this)">Lua</button>
+                <button class="tab-btn" onclick="setLang('js', this)">JavaScript</button>
+                <button class="tab-btn" onclick="setLang('cpp', this)">C++</button>
+                <button class="tab-btn" onclick="setLang('cs', this)">C#</button>
+            </div>
+            <pre><code id="snippetCode"></code></pre>
+            <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+                <button class="btn-copy" style="background: var(--green); padding: 8px 16px;" onclick="copyCode()">📋 Copiar Código</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script>
+        if (typeof DB === 'undefined') {
+            document.getElementById('classList').innerHTML = '<div style="color:#ef4444;padding:12px;font-size:0.8rem;">Erro: data.js não foi carregado!</div>';
+        } else {
+            const classNames = Object.keys(DB).sort();
+            let selectedClass = '';
+            let currentItem = null;
+            let currentLang = 'lua';
+
+            function renderList(filter = '') {
+                const list = document.getElementById('classList');
+                list.innerHTML = '';
+                const q = filter.toLowerCase().trim();
+                let count = 0;
+                for (const name of classNames) {
+                    if (!q || name.toLowerCase().includes(q)) {
+                        const item = document.createElement('div');
+                        item.className = 'class-item' + (selectedClass === name ? ' active' : '');
+                        item.innerHTML = '<span>' + name + '</span><span class="badge">' + DB[name].length + '</span>';
+                        item.onclick = () => selectClass(name);
+                        list.appendChild(item);
+                        if (++count > 250) break;
+                    }
+                }
+            }
+
+            function onSearch() { renderList(document.getElementById('searchInput').value); }
+
+            function selectClass(name) {
+                selectedClass = name;
+                renderList(document.getElementById('searchInput').value);
+                const main = document.getElementById('mainContent');
+                const members = DB[name];
+                const fields = members.filter(m => m.t === 'F');
+                const methods = members.filter(m => m.t === 'M');
+
+                let html = '<div class="class-title">' + name + '</div><div class="class-subtitle">' + fields.length + ' Campos | ' + methods.length + ' Métodos</div>';
+                if (fields.length > 0) {
+                    html += '<div class="section-title">Campos / Offsets</div><table class="table"><thead><tr><th>Nome</th><th>Tipo</th><th>Offset</th><th>Ação</th></tr></thead><tbody>';
+                    for (const f of fields) {
+                        html += '<tr><td><strong>' + f.n + '</strong></td><td class="badge-type">' + f.tp + '</td><td class="badge-offset">' + f.off + '</td><td><button class="btn-copy" onclick="openModal(\'field\', \'' + f.n + '\', \'' + f.tp + '\', \'' + f.off + '\')">Snippet</button></td></tr>';
+                    }
+                    html += '</tbody></table>';
+                }
+                if (methods.length > 0) {
+                    html += '<div class="section-title">Métodos / Funções</div><table class="table"><thead><tr><th>Método</th><th>RVA</th><th>Ação</th></tr></thead><tbody>';
+                    for (const m of methods) {
+                        html += '<tr><td><strong>' + m.n + '()</strong></td><td class="badge-rva">' + m.rva + '</td><td><button class="btn-copy" onclick="openModal(\'method\', \'' + m.n + '\', \'\', \'' + m.rva + '\')">Hook</button></td></tr>';
+                    }
+                    html += '</tbody></table>';
+                }
+                main.innerHTML = html;
+            }
+
+            function openModal(type, name, fType, val) {
+                currentItem = { type, name, fType, val, cls: selectedClass };
+                document.getElementById('snippetModal').style.display = 'flex';
+                updateSnippet();
+            }
+            function closeModal() { document.getElementById('snippetModal').style.display = 'none'; }
+            function setLang(lang, el) {
+                currentLang = lang;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                el.classList.add('active');
+                updateSnippet();
+            }
+            function updateSnippet() {
+                const { type, name, fType, val, cls } = currentItem;
+                let code = '';
+                if (type === 'field') {
+                    if (currentLang === 'lua') code = 'local obj = using("' + cls + '")(ptr)\nlocal v = obj.' + name + '\nobj.' + name + ' = 123';
+                    else if (currentLang === 'js') code = 'const obj = using("' + cls + '")(ptr);\nconsole.log(obj.' + name + ');\nobj.' + name + ' = 123;';
+                    else if (currentLang === 'cpp') code = '#include "BeastriaSDK.hpp"\n*(' + fType + '*)(ptr + Beastria::' + cls + '::OFFSET_' + name + ') = 123;';
+                    else if (currentLang === 'cs') code = 'using Beastria;\n*(int*)(ptr + ' + cls + '.OFFSET_' + name + ') = 123;';
+                } else {
+                    if (currentLang === 'lua') code = 'Hook.attach(' + val + ', function(args)\n    print("' + cls + '.' + name + ' chamado!")\nend)';
+                    else if (currentLang === 'js') code = 'Hook.attach("' + val + '", (args) => {\n    console.log("' + cls + '.' + name + '");\n});';
+                    else if (currentLang === 'cpp') code = '// RVA: ' + val + '\nDobbyHook((void*)Beastria::' + cls + '::RVA_' + name + ', (void*)hook, &orig);';
+                    else if (currentLang === 'cs') code = '// RVA: ' + val + '\n[UnmanagedFunctionPointer(CallingConvention.Cdecl)]\ndelegate void ' + name + 'Delegate(IntPtr self);';
+                }
+                document.getElementById('snippetCode').innerText = code;
+            }
+            function copyCode() {
+                navigator.clipboard.writeText(document.getElementById('snippetCode').innerText);
+                alert('Código copiado!');
+            }
+
+            renderList();
+        }
+    </script>
+</body>
+</html>
